@@ -1,0 +1,58 @@
+pipeline{
+    agent any
+    triggers{
+        pollSCM('* * * * *')
+    }
+    options{
+    timestamps()
+    buildDiscarder(logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '5', daysToKeepStr: '', numToKeepStr: '5'))
+    }
+    tools{
+        maven "maven3.6.3"
+    }
+    stages{
+        stage('CheckOutCode'){
+            steps{
+            git branch: 'development', credentialsId: '7760a291-2a26-465f-9225-92b6d3f77fd7', url: 'https://github.com/vijju14nov/maven-web-application.git'    
+            }
+        }
+            stage('Build'){
+                steps{
+                    sh "mvn clean package"
+                }
+            }
+            stage('ExecuteSonarQubeReport'){
+                steps{
+                    sh "mvn clean sonar:sonar"
+                }
+            }
+            stage('UploadArtifactIntoRepository'){
+                steps{
+                    sh "mvn clean deploy"
+                }
+            }
+            stage('DeployAppIntoTomcateServer'){
+                steps{
+                    
+                sshagent(['a319558b-302e-4e82-8394-6706e7e2f036']) {
+    sh "scp -o StrictHostKeyChecking=no target/maven-web-application.war ec2-user@13.233.72.37:/opt/apache-tomcat-9.0.46/webapps/"
+                }
+                }
+            }
+            
+            }
+            post{
+                success{
+                    emailext body: '''Build is Over
+
+With Regards
+Kasturi Vijay Bhasker''', subject: 'Build is Over', to: 'vijju14nov@gmail.com'
+                }
+                failure{
+                    emailext body: '''Build is Over
+
+With Regards
+Kasturi Vijay Bhasker''', subject: 'Build is Over', to: 'vijju14nov@gmail.com'
+                }
+            }
+        }
